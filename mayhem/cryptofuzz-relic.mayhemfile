@@ -1,0 +1,4 @@
+project: PROJECT
+target: cryptofuzz-relic
+cmds:
+- cmd: /out/cryptofuzz-relic
