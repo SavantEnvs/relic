@@ -48,8 +48,3 @@ jobs:
         mayhem-token: ${{ secrets.MAYHEM_TOKEN }}
         args: --image ${{ steps.meta.outputs.tags }} --cmd /out/cryptofuzz-relic
           --target cryptofuzz-relic --file mayhem/cryptofuzz-relic.mayhemfile
-        sarif-output: sarif
-    - name: Upload SARIF file(s)
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: sarif
