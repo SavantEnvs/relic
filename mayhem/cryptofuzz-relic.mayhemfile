@@ -1,4 +1,7 @@
-project: PROJECT
-target: cryptofuzz-relic
+project: relic
+target: fuzz-bn
+
 cmds:
-- cmd: /out/cryptofuzz-relic
+  - cmd: /fuzz_bn
+  - cmd: /fuzz_bn_no_inst @@
+    libfuzzer: false

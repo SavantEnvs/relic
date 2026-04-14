@@ -1,27 +1,61 @@
-# Copyright 2021 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-################################################################################
+# Build Stage
+FROM --platform=linux/amd64 ubuntu:22.04 AS builder
 
-FROM gcr.io/oss-fuzz-base/base-builder
-RUN apt-get update && apt-get install -y make autoconf automake libtool wget python
-COPY . relic
-RUN rm -rf relic/mayhem
-RUN git clone --depth 1 https://github.com/randombit/botan.git
-RUN git clone --depth 1 https://github.com/guidovranken/cryptofuzz
-RUN wget https://boostorg.jfrog.io/artifactory/main/release/1.74.0/source/boost_1_74_0.tar.bz2
-COPY mayhem/build.sh $SRC/
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y cmake clang build-essential
 
-ENV FUZZING_LANGUAGE=c++ SANITIZER=address
-RUN compile
+COPY . /src
+WORKDIR /src
+
+# Build and install relic (instrumented: ASAN + fuzzer-no-link)
+RUN mkdir /build_inst && cd /build_inst && \
+    cmake /src \
+        -DCMAKE_C_COMPILER=clang \
+        -DRAND=HASHD \
+        -DSHLIB=off \
+        -DSTBIN=off \
+        -DTESTS=0 \
+        -DBENCH=0 \
+        -DALLOC=DYNAMIC \
+        -DARCH=X64 \
+        -DCHECK=on \
+        -DQUIET=on \
+        -DCMAKE_INSTALL_PREFIX=/install_inst \
+        -DCMAKE_C_FLAGS="-fsanitize=address,fuzzer-no-link -fno-omit-frame-pointer" && \
+    make -j$(nproc) relic_s && \
+    make install
+
+# Build instrumented fuzzer (libfuzzer + ASAN)
+RUN clang -fsanitize=address,fuzzer -fno-omit-frame-pointer \
+    -I/install_inst/include \
+    /src/mayhem/fuzz_bn.c \
+    /install_inst/lib/librelic_s.a \
+    -o /fuzz_bn
+
+# Build and install relic (non-instrumented)
+RUN mkdir /build_plain && cd /build_plain && \
+    cmake /src \
+        -DCMAKE_C_COMPILER=clang \
+        -DRAND=HASHD \
+        -DSHLIB=off \
+        -DSTBIN=off \
+        -DTESTS=0 \
+        -DBENCH=0 \
+        -DALLOC=DYNAMIC \
+        -DARCH=X64 \
+        -DCHECK=on \
+        -DQUIET=on \
+        -DCMAKE_INSTALL_PREFIX=/install_plain && \
+    make -j$(nproc) relic_s && \
+    make install
+
+# Build non-instrumented (standalone) fuzzer
+RUN clang -DSTANDALONE \
+    -I/install_plain/include \
+    /src/mayhem/fuzz_bn.c \
+    /install_plain/lib/librelic_s.a \
+    -o /fuzz_bn_no_inst
+
+# Package Stage
+FROM ubuntu:22.04
+COPY --from=builder /fuzz_bn /fuzz_bn_no_inst /
