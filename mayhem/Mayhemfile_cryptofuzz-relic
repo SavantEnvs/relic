@@ -1,0 +1,8 @@
+# cryptofuzz-relic — the OSS-Fuzz differential harness (RELIC vs Botan oracle) over RELIC's
+# bignum/ECC/digest/cipher operations. libFuzzer, in-process. Built by mayhem/build.sh.
+project: savantenvs/relic
+target: cryptofuzz-relic
+
+cmds:
+  - cmd: /mayhem/cryptofuzz-relic
+    libfuzzer: true
