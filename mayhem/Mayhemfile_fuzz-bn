@@ -1,0 +1,9 @@
+# fuzz-bn — the fork's direct libFuzzer harness over RELIC's bignum arithmetic
+# (bn_read_bin/bn_add/bn_sub/bn_mul/bn_div/bn_gcd/...). Built by mayhem/build.sh; a run-once
+# standalone reproducer is at /mayhem/fuzz_bn-standalone.
+project: savantenvs/relic
+target: fuzz-bn
+
+cmds:
+  - cmd: /mayhem/fuzz_bn
+    libfuzzer: true
